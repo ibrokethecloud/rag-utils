@@ -3,7 +3,6 @@ package indexer
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -57,7 +56,7 @@ func NewIndexer(ctx context.Context, ModelName, EmbeddedModelName, URL, DBEndpoi
 	}, nil
 }
 
-// GenerateRAG will walk the directory and add add markdown files to vector store
+// GenerateRAG will walk the directory and add markdown files to vector store
 // using the embedder and this can be used later for querying information
 func (i *Indexer) GenerateRAG(ctx context.Context, dbname string, dir string, filesuffix string) error {
 
@@ -66,38 +65,6 @@ func (i *Indexer) GenerateRAG(ctx context.Context, dbname string, dir string, fi
 		return fmt.Errorf("error generating vector store: %v", err)
 	}
 	return i.addDocuments(ctx, store, dir, filesuffix)
-}
-
-// newStore initialises the vector store connector
-func newStore(name string, embedder embeddings.Embedder, dbendpoint string) (vectorstores.VectorStore, error) {
-
-	// can try out different indexing options to check
-	// if it affects result quality
-	idx, err := entity.NewIndexIvfFlat(entity.L2, 128)
-	if err != nil {
-		log.Fatal(err)
-	}
-	ctx := context.Background()
-
-	milvusConfig := client.Config{
-		Address: dbendpoint,
-	}
-
-	logrus.Infof("setting up milvus store %s", name)
-
-	opts := []milvus.Option{
-		milvus.WithCollectionName(name),
-		milvus.WithIndex(idx),
-		milvus.WithEmbedder(embedder),
-		milvus.WithSkipFlushOnWrite(),
-	}
-
-	store, err := milvus.New(
-		ctx,
-		milvusConfig,
-		opts...)
-
-	return store, err
 }
 
 func (i *Indexer) addDocuments(ctx context.Context, store vectorstores.VectorStore, dir string, filesuffix string) error {
@@ -165,7 +132,7 @@ func generateDocument(dir string, fileSuffix string) ([]schema.Document, error) 
 
 // QueryRAG uses similarity search to lookup info
 func (i *Indexer) QueryRAG(ctx context.Context, dbname, query string, options []vectorstores.Option) ([]schema.Document, error) {
-	store, err := newStore(dbname, i.embedder, i.DBEndpoint)
+	store, err := i.InitStore(dbname)
 	if err != nil {
 		return nil, fmt.Errorf("error generating vector store: %v", err)
 	}

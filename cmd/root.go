@@ -13,7 +13,6 @@ var (
 		Long: `rag is a utility which allows users to create a new vectorstore from markdown files and manage operations such as deleting
 	add adding more content to an existing vector store. it uses milvus as the backend and ollama for embedding`,
 		Run: func(cmd *cobra.Command, args []string) {
-			ctx = context.Background()
 		},
 	}
 	ctx                context.Context
@@ -27,6 +26,7 @@ var (
 )
 
 func init() {
+	ctx = context.Background()
 	rootCmd.PersistentFlags().StringVar(&url, "llmEndpoint", "http://localhost:11434/v1", "llm model endpoint, defaults to http://localhost:11434/v1")
 	rootCmd.PersistentFlags().StringVar(&dbendpoint, "milvusEndpoint", "http://localhost:19530", "milvus vector store endpoint, defaults to http://localhost:19530")
 	rootCmd.PersistentFlags().StringVar(&modelName, "modelName", "llama3.1", "llm model name, defaults to llama3.1")
