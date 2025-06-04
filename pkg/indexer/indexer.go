@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/milvus-io/milvus-sdk-go/v2/client"
 	"github.com/milvus-io/milvus-sdk-go/v2/entity"
@@ -69,35 +68,41 @@ func (i *Indexer) GenerateRAG(ctx context.Context, dbname string, dir string, fi
 
 func (i *Indexer) addDocuments(ctx context.Context, store vectorstores.VectorStore, dir string, filesuffix string) error {
 	// Add documents to the vector store.
-	docs, err := generateDocument(dir, filesuffix)
+	fileList, err := generateDocumentList(dir, filesuffix)
 	if err != nil {
-		return err
+		return fmt.Errorf("error generating document list: %v", err)
 	}
 
-	for _, doc := range docs {
-		logrus.Infof("processing file: %s", doc.Metadata[fileNameKey])
+	for _, file := range fileList {
+		logrus.Infof("Adding document: %s", filepath.Base(file))
+		contents, err := os.ReadFile(file)
+		if err != nil {
+			return fmt.Errorf("error reading file: %v", err)
+		}
+
+		docs := schema.Document{
+			PageContent: string(contents),
+			Metadata: map[string]any{
+				fileNameKey: filepath.Base(file),
+			},
+		}
 		splitter := textsplitter.NewMarkdownTextSplitter(textsplitter.WithChunkOverlap(250),
 			textsplitter.WithChunkSize(2500), textsplitter.WithSecondSplitter(textsplitter.NewRecursiveCharacter()))
-		splitdocs, err := textsplitter.SplitDocuments(splitter, docs)
+		splitdocs, err := textsplitter.SplitDocuments(splitter, []schema.Document{docs})
+
 		if err != nil {
-			return err
+			return fmt.Errorf("error splitting documents: %v", err)
 		}
-
-		//chunked := chunkDocs(splitdocs, 500)
-
 		if _, err = store.AddDocuments(ctx, splitdocs); err != nil {
-			logrus.Errorf("error processing document %v: %v", doc, err)
+			logrus.Errorf("error processing document %v: %v", docs, err)
 			return err
 		}
-		time.Sleep(10 * time.Second)
-
 	}
 	return nil
 }
 
-// generate documents will read the documents and generate a schema document for markdown files
-func generateDocument(dir string, fileSuffix string) ([]schema.Document, error) {
-	var resp []schema.Document
+func generateDocumentList(dir string, fileSuffix string) ([]string, error) {
+	var fileList []string
 	err := filepath.Walk(dir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			fmt.Printf("prevent panic by handling failure accessing a path %q: %v\n", path, err)
@@ -110,24 +115,12 @@ func generateDocument(dir string, fileSuffix string) ([]schema.Document, error) 
 				return err
 			}
 			if filepath.Ext(absPath) == fileSuffix {
-				contents, err := os.ReadFile(absPath)
-				if err != nil {
-					return nil
-				}
-				resp = append(resp, schema.Document{
-					PageContent: string(contents),
-					Metadata: map[string]any{
-						fileNameKey: filepath.Base(absPath),
-					},
-				})
+				fileList = append(fileList, absPath)
 			}
 		}
 		return nil
 	})
-	if err != nil {
-		return nil, err
-	}
-	return resp, nil
+	return fileList, err
 }
 
 // QueryRAG uses similarity search to lookup info
@@ -137,34 +130,6 @@ func (i *Indexer) QueryRAG(ctx context.Context, dbname, query string, options []
 		return nil, fmt.Errorf("error generating vector store: %v", err)
 	}
 	return store.SimilaritySearch(ctx, query, 1, options...)
-}
-
-func chunkDocs(docs []schema.Document, chunkSize int) [][]schema.Document {
-	var chunkedDocs [][]schema.Document
-	if len(docs) < chunkSize {
-		return [][]schema.Document{docs}
-	}
-
-	for i := 0; i < len(docs); i = i + chunkSize {
-		limit := i + chunkSize
-		if len(docs[i:]) < chunkSize {
-			chunkedDocs = append(chunkedDocs, docs[i:])
-		} else {
-			chunkedDocs = append(chunkedDocs, docs[i:limit])
-		}
-	}
-	return chunkedDocs
-}
-
-// saveDocumentsWithRetry retries on 500 status code when adding document
-func saveDocumentsWithRetry(ctx context.Context, store vectorstores.VectorStore, docs []schema.Document) error {
-	var err error
-	for i := 0; i < 10; i++ {
-		if _, err = store.AddDocuments(ctx, docs); err != nil {
-			time.Sleep(2 * time.Second)
-		}
-	}
-	return err
 }
 
 func (i *Indexer) DropDB(collectionName string) error {

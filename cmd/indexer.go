@@ -46,7 +46,7 @@ var deleteCommand = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		logrus.Infof("collection %s initialised", collectionName)
+		logrus.Infof("collection %s deleted", collectionName)
 		return nil
 	},
 }
@@ -99,6 +99,7 @@ func init() {
 	addCommand.PersistentFlags().StringVar(&dir, "dir", ".", "directory to parse and add markdown files from")
 	addCommand.PersistentFlags().StringVar(&fileSuffix, "fileSuffix", ".md", "suffix of files to index in specified directory")
 	deleteCommand.PersistentFlags().StringVar(&collectionName, "collection", "rag", "milvus collection name")
+	queryCommand.PersistentFlags().StringVar(&collectionName, "collection", "rag", "milvus collection name")
 	rootCmd.AddCommand(initCommand)
 	rootCmd.AddCommand(addCommand)
 	rootCmd.AddCommand(queryCommand)
