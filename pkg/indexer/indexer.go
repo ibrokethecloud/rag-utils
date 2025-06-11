@@ -164,7 +164,8 @@ func (i *Indexer) InitStore(name string) (vectorstores.VectorStore, error) {
 	// newStore initialises the vector store connector
 	// can try out different indexing options to check
 	// if it affects result quality
-	idx, err := entity.NewIndexIvfFlat(entity.L2, 128)
+	idx, err := entity.NewIndexIvfFlat(entity.L2, 1024)
+	//idx, err := entity.NewIndexFlat(entity.L2)
 	if err != nil {
 		return nil, fmt.Errorf("error initialising index: %v", err)
 	}
