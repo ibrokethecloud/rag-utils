@@ -80,6 +80,9 @@ func (i *Indexer) addDocuments(ctx context.Context, store vectorstores.VectorSto
 			return fmt.Errorf("error reading file: %v", err)
 		}
 
+		if len(contents) == 0 {
+			continue // empty file no more processing is needed
+		}
 		docs := schema.Document{
 			PageContent: string(contents),
 			Metadata: map[string]any{
